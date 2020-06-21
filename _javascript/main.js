@@ -1,4 +1,23 @@
-var worker = new Worker('./lib/worker.sql-wasm.js');
+const wasm_supported = (() => {
+    try {
+        if (typeof WebAssembly === "object"
+            && typeof WebAssembly.instantiate === "function") {
+            const module = new WebAssembly.Module(Uint8Array.of(0x0, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00));
+            if (module instanceof WebAssembly.Module)
+                return new WebAssembly.Instance(module) instanceof WebAssembly.Instance;
+        }
+    } catch (e) {
+    }
+    return false;
+})();
+
+var worker;
+
+if (wasm_supported) {
+	worker = new Worker('./lib/worker.sql-wasm.js');
+} else {
+	worker = new Worker('./lib/worker.sql-asm.js');
+}
 
 window.sql_cbs = {};
 let sqlid = 1;
@@ -71,7 +90,12 @@ worker.onmessage = () => {
     if (data.id in window.sql_cbs) {
       let cb = window.sql_cbs[data.id];
       delete window.sql_cbs[data.id];
-      cb(data.results[0]);
+      if (data.error) {
+        show_error(data.error);
+      }
+      if (data.results) {
+        cb(data.results[0]);
+      }
     }
   };
 
@@ -114,7 +138,8 @@ function get_input(title, body, val="") {
   });
 }
 
-$('#btn-dump').click(async function() {
+$('#btn-dump').click(() => {
+(async function() {
   if (!has_database || running)
     return;
   running = true;
@@ -133,9 +158,12 @@ $('#btn-dump').click(async function() {
   });
 
   running = false;
+
+})().catch(show_error)
 });
 
-$('#btn-paths').click(async function() {
+$('#btn-paths').click(() => {
+(async function() {
   if (!has_database || running)
     return;
   running = true;
@@ -261,10 +289,12 @@ $('#btn-paths').click(async function() {
   log(`Done updating folders with new path. Updated path on ${update_count} folders`)
 
   running = false;
+})().catch(show_error)
 });
 
 
-$('#btn-download').click(async function() {
+$('#btn-download').click(()=>{
+(async function() {
   if (!has_database || running)
     return;
   running = true;
@@ -291,4 +321,5 @@ $('#btn-download').click(async function() {
 
   worker.postMessage({ action: 'export' });
 
+})().catch(show_error)
 });
