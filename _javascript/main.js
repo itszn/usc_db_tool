@@ -55,7 +55,7 @@ function handleFiles() {
     });
   }
   reader.readAsArrayBuffer(file);
-	
+
 }
 
 worker.onerror = e => {
@@ -64,10 +64,14 @@ worker.onerror = e => {
 }
 
 function sql_first(results) {
+  if (results === undefined)
+    return null;
   return results.values[0];
 }
 
 function sql_all(results) {
+  if (results === undefined)
+    return [];
   return results.values;
 }
 
@@ -123,6 +127,24 @@ function esc(data) {
   return $('<div>').text(data).html();
 }
 
+function modal(title, body) {
+  return new Promise(resolve => {
+    let c = $('#modal').addClass('is-active')
+    .find('.modal-content').html(`
+<div class="box">
+  <div class="content">
+    <h3 class="is-3">${esc(title)}</h3>
+    <p>${body}</p>
+    <button class="button is-fullwidth">Ok</button>
+  </div>
+</div>`);
+    c.find('button').click(x=>{
+      $('#modal').removeClass('is-active')
+      resolve();
+    })
+  });
+}
+
 function get_input(title, body, val="") {
   return new Promise(resolve => {
     let c = $('#modal').addClass('is-active')
@@ -143,11 +165,72 @@ function get_input(title, body, val="") {
   });
 }
 
-$('#btn-stats').click(() => {
+$('#btn-stats-folders').click(() => {
 (async function() {
   if (!has_database || running)
     return;
 
+  running = true;
+
+  let [dirs, base_dir] = await find_folders();
+  dirs = Array.from(dirs.values());
+  console.log(dirs)
+
+  let body = '';
+  for (let f of dirs) {
+    body += `
+<div class="field">
+<label class="checkbox">
+  <input type="checkbox" checked>
+  ${esc(f)}
+</label>
+</div>`;
+  }
+  await modal('Select Folders To Collect Stats For',body);
+
+  let ops = $('#modal').find('input');
+  console.log(dirs);
+  console.log(ops);
+
+  let where = [];
+  for (let i=0; i<dirs.length; i++) {
+    let o = ops.eq(i);
+
+    console.log(o[0], o[0].checked);
+    if (!o[0].checked)
+      continue;
+
+    let spath = base_dir + dirs[i];
+
+    where.push(`path LIKE "${spath}%"`)
+  }
+
+  console.log(where);
+
+  if (where.length == 0) {
+    await do_stats('');
+    return
+  }
+
+  where = ` AND (${where.join(' OR ')})`
+  console.log(where);
+
+  await do_stats(where);
+
+})().catch(show_error)
+});
+
+$('#btn-stats').click(() => {
+  if (!has_database || running)
+    return;
+
+  running = true;
+
+  do_stats();
+});
+
+function do_stats(where) {
+(async function() {
   running = true;
 
   log("Starting stat collection. This may take a few minutes");
@@ -184,7 +267,7 @@ $('#btn-stats').click(() => {
     prog.attr('value','0');
 
     // Get all charts and their max scores
-    let raw_scores = await (query(`SELECT hash, (SELECT max(s.score) from Scores s where s.chart_hash=hash) from Charts where level=${level}`).then(sql_all));
+    let raw_scores = await (query(`SELECT hash, (SELECT max(s.score) from Scores s where s.chart_hash=hash) from Charts where level=${level} ${where}`).then(sql_all));
     console.log(raw_scores);
 
 
@@ -216,7 +299,7 @@ $('#btn-stats').click(() => {
     }
 
     // Check if any charts have a UC
-    let raw_misses = await (query(`SELECT hash, (SELECT 1 from Scores s where s.chart_hash=hash and s.miss=0 limit 1) from Charts where level=${level}`).then(sql_all));
+    let raw_misses = await (query(`SELECT hash, (SELECT 1 from Scores s where s.chart_hash=hash and s.miss=0 limit 1) from Charts where level=${level} ${where}`).then(sql_all));
     console.log(raw_misses);
 
 
@@ -235,7 +318,7 @@ $('#btn-stats').click(() => {
     prog.attr('value','2');
 
     // Check if any charts were using excessive
-    let raw_ex = await (query(`SELECT hash, (SELECT 1 from Scores s where s.chart_hash=hash and s.gameflags&1=1 and s.gauge>0 limit 1) from Charts where level=${level}`).then(sql_all));
+    let raw_ex = await (query(`SELECT hash, (SELECT 1 from Scores s where s.chart_hash=hash and s.gameflags&1=1 and s.gauge>0 limit 1) from Charts where level=${level} ${where}`).then(sql_all));
     console.log(raw_ex);
 
     for (let row of raw_ex) {
@@ -253,7 +336,7 @@ $('#btn-stats').click(() => {
     prog.attr('value','3');
 
     // Check if any charts were cleared
-    let raw_c = await (query(`SELECT hash, (SELECT 1 from Scores s where s.chart_hash=hash and s.gameflags&1=0 and s.gauge>0.7 limit 1) from Charts where level=${level}`).then(sql_all));
+    let raw_c = await (query(`SELECT hash, (SELECT 1 from Scores s where s.chart_hash=hash and s.gameflags&1=0 and s.gauge>0.7 limit 1) from Charts where level=${level} ${where}`).then(sql_all));
     console.log(raw_c);
 
     prog.attr('value','4');
@@ -361,7 +444,7 @@ $('#btn-stats').click(() => {
 
   running = false;
 })().catch(show_error)
-});
+}
 
 $('#btn-dump').click(() => {
 (async function() {
@@ -387,18 +470,39 @@ $('#btn-dump').click(() => {
 })().catch(show_error)
 });
 
-$('#btn-paths').click(() => {
-(async function() {
-  if (!has_database || running)
-    return;
-  running = true;
+async function find_folders(all_rows) {
+  if (all_rows === undefined)
+    all_rows =  await (
+      query('SELECT rowid, path, folderid from Charts').then(sql_all));
 
-  log('Finding chart path');
-	let all_rows =  await (query('SELECT rowid, path, folderid from Charts').then(sql_all));
+  let base_dir = await find_base_path(all_rows);
+
+  log(`Base dir is ${base_dir}`);
+
+  let sep = all_rows[0][1][0] === '/'? '/' : '\\';
+  base_dir = base_dir + sep;
+
+  let dirs = new Set();
+
+  for (let row of all_rows) {
+    let path = row[1];
+    path = path.slice(base_dir.length);
+    path = path.split(sep)[0]
+    dirs.add(path)
+  }
+
+  return [dirs, base_dir];
+
+}
+
+async function find_base_path(all_rows) {
+  if (all_rows === undefined)
+    all_rows =  await (
+      query('SELECT rowid, path, folderid from Charts').then(sql_all));
+
   let possible_path = [];
 
   let sep = all_rows[0][1][0] === '/'? '/' : '\\';
-  log(`Path seperator is ${sep}`);
 
   for (let row of all_rows) {
     let path = row[1].split(sep);
@@ -425,7 +529,17 @@ $('#btn-paths').click(() => {
     }
 
   }
-  let old_path = possible_path.join(sep);
+  return possible_path.join(sep);
+}
+
+$('#btn-paths').click(() => {
+(async function() {
+  if (!has_database || running)
+    return;
+  running = true;
+
+  log('Finding main song folder');
+  let old_path = await find_base_path();
 
   console.log(all_rows.length);
 
