@@ -16,6 +16,7 @@ var worker;
 if (wasm_supported) {
 	worker = new Worker('./lib/worker.sql-wasm.js');
 } else {
+  log_h('<font color="red">NOTE: Your browser does not support WASM, this tool will run much slower...</font>');
 	worker = new Worker('./lib/worker.sql-asm.js');
 }
 
@@ -72,10 +73,14 @@ function sql_all(results) {
 
 function show_error(msg) {
   $('#errormsg').text(msg).show();
+  throw msg;
 }
 
 function log(msg) {
   $('#log').append(msg+'\n');
+}
+function log_h(msg) {
+  $('#log').append($(msg+'<br/>'));
 }
 
 let has_database = false;
@@ -137,6 +142,164 @@ function get_input(title, body, val="") {
     c.find('input')[0].value = val;
   });
 }
+
+$('#btn-stats').click(() => {
+(async function() {
+  if (!has_database || running)
+    return;
+
+  running = true;
+
+  log("Starting stat collection. This may take a few minutes");
+  if (!wasm_supported) {
+    log_h('<font color="red">NOTE: Your browser does not support WASM, this tool will run much slower...</font>');
+  }
+
+  let table = $('<table>').html(`
+<thead>
+  <th>Level</th>
+  <th>Average</th>
+  <th>Clear Average</th>
+  <th># Clear</th>
+  <th># Ex Clear</th>
+  <th># UC</th>
+  <th># PUC</th>
+</thead>
+<tbody>
+</tbody>`);
+  let body = table.find('tbody');
+  $('#log').append(table);
+
+  let prog = $('<progress value="0" max="4" style="width:100%"></progress>');
+  $('#log').append(prog);
+
+  for (let level=20; level>=10; level--) {
+    prog.attr('value','0');
+
+    // Get all charts and their max scores
+    let raw_scores = await (query(`SELECT hash, (SELECT max(s.score) from Scores s where s.chart_hash=hash) from Charts where level=${level}`).then(sql_all));
+    console.log(raw_scores);
+
+
+    let scores = {};
+    for (let row of raw_scores) {
+      let [hash, max_score] = row;
+      if (max_score === null)
+        continue;
+      scores[hash] = {
+        score: max_score,
+        badge: max_score === 10000000? 'puc' : 'f' // Fail will be updated below
+      };
+    }
+
+    prog.attr('value','1');
+
+    if (Object.keys(scores).length === 0) {
+      body.append($(`<tr><td>${level}</td><td><b>0000</b>000</td><td><b>0000</b>000</td><td>0</td><td>0</td><td>0</td><td>0</td></tr>`));
+      continue;
+
+    }
+
+    // Check if any charts have a UC
+    let raw_misses = await (query(`SELECT hash, (SELECT 1 from Scores s where s.chart_hash=hash and s.miss=0 limit 1) from Charts where level=${level}`).then(sql_all));
+    console.log(raw_misses);
+
+
+    for (let row of raw_misses) {
+      let [hash, is_uc] = row;
+      if (is_uc !== 1)
+        continue;
+
+      let chart = scores[hash];
+      if (chart.badge != 'f') // If already puc, skip
+        continue;
+
+      chart.badge = 'uc'
+    }
+
+    prog.attr('value','2');
+
+    // Check if any charts were using excessive
+    let raw_ex = await (query(`SELECT hash, (SELECT 1 from Scores s where s.chart_hash=hash and s.gameflags&1=1 and s.gauge>0 limit 1) from Charts where level=${level}`).then(sql_all));
+    console.log(raw_ex);
+
+    for (let row of raw_ex) {
+      let [hash, is_hc] = row;
+      if (is_hc !== 1)
+        continue;
+
+      let chart = scores[hash];
+      if (chart.badge != 'f') // If already puc or uc, skip
+        continue;
+
+      chart.badge = 'hc'
+    }
+
+    prog.attr('value','3');
+
+    // Check if any charts were cleared
+    let raw_c = await (query(`SELECT hash, (SELECT 1 from Scores s where s.chart_hash=hash and s.gameflags&1=0 and s.gauge>0.7 limit 1) from Charts where level=${level}`).then(sql_all));
+    console.log(raw_c);
+
+    prog.attr('value','4');
+
+    console.log('Going into loop');
+    for (let row of raw_c) {
+      let [hash, is_c] = row;
+      if (is_c !== 1)
+        continue;
+
+      let chart = scores[hash];
+      if (chart.badge != 'f') // If already puc or uc, skip
+        continue;
+
+      chart.badge = 'c'
+    }
+    console.log('Done with scores');
+
+    let avg_list = function(l) {
+      if (l.length === 0)
+        return 0;
+      return l.reduce((a,b)=>a+b) / l.length;
+    }
+
+    console.log("Calcing");
+
+    let score_list = Object.values(scores);
+    let avg = avg_list(score_list.map(x=>x.score));
+    let clr_avg = avg_list(score_list.filter(x=>x.badge !== 'f').map(x=>x.score));
+    let badges = {}
+    for (let score of score_list) {
+      let b = score.badge;
+      badges[b] = (badges[b]? badges[b] : 0) + 1;
+    }
+
+    let nums = function(n) {
+      n = parseInt(n);
+      if (n === 10000000)
+        return '<b>10000</b>000';
+      n = n.toString();
+      n = '0'.repeat(7-n.length)+n;
+      return `<b>${n.slice(0,4)}</b>${n.slice(4)}`
+    }
+
+    body.append($(`
+<tr>
+  <td>${level}</td>
+  <td>${nums(avg)}</td>
+  <td>${nums(clr_avg)}</td>
+  <td>${badges.c? badges.c : 0}</td>
+  <td>${badges.hc? badges.hc : 0}</td>
+  <td>${badges.uc? badges.uc : 0}</td>
+  <td>${badges.puc? badges.puc : 0}</td>
+</tr>`));
+  }
+
+  prog.remove();
+
+  running = false;
+})().catch(show_error)
+});
 
 $('#btn-dump').click(() => {
 (async function() {
