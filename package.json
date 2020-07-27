@@ -62,7 +62,7 @@
     "css-deploy": "npm run css-build && npm run css-postcss",
     "css-postcss": "postcss --use autoprefixer --output css/main.css css/main.css",
     "css-watch": "npm run css-build -- --watch",
-    "deploy": "npm run css-deploy && npm run js-build",
+    "deploy": "npm run css-deploy && npm run js-build && sed \"s/{{CACHE_KILLER}}/$(cat /dev/urandom | xxd -p | head -c 16)/g\" _index.html > index.html",
     "js-build": "babel _javascript --out-dir lib",
     "js-watch": "npm run js-build -- --watch",
     "reload": "reload",

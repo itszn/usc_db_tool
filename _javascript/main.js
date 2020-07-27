@@ -160,6 +160,7 @@ $('#btn-stats').click(() => {
   <th>Level</th>
   <th>Average</th>
   <th>Clear Average</th>
+  <th>Best Score</th>
   <th># Clear</th>
   <th># Ex Clear</th>
   <th># UC</th>
@@ -173,6 +174,12 @@ $('#btn-stats').click(() => {
   let prog = $('<progress value="0" max="4" style="width:100%"></progress>');
   $('#log').append(prog);
 
+  let volforce = $('<div>0 VF</div>');
+  $('#log').append(volforce);
+
+  let low_best_vol = 0;
+  let best_vol = [];
+
   for (let level=20; level>=10; level--) {
     prog.attr('value','0');
 
@@ -182,20 +189,28 @@ $('#btn-stats').click(() => {
 
 
     let scores = {};
+    let best_score  = 0;
+    let best_hash = '';
     for (let row of raw_scores) {
       let [hash, max_score] = row;
       if (max_score === null)
         continue;
+
+      if (max_score > best_score) {
+        best_score = max_score;
+        best_hash = hash;
+      }
+
       scores[hash] = {
         score: max_score,
-        badge: max_score === 10000000? 'puc' : 'f' // Fail will be updated below
+        badge: max_score === 10000000? 'puc' : 'f' // Fail will be updated below,
       };
     }
 
     prog.attr('value','1');
 
     if (Object.keys(scores).length === 0) {
-      body.append($(`<tr><td>${level}</td><td><b>0000</b>000</td><td><b>0000</b>000</td><td>0</td><td>0</td><td>0</td><td>0</td></tr>`));
+      body.append($(`<tr><td>${level}</td><td><b>0000</b>000</td><td><b>0000</b>000</td><td><b>0000</b>000</td><td>0</td><td>0</td><td>0</td><td>0</td></tr>`));
       continue;
 
     }
@@ -243,7 +258,6 @@ $('#btn-stats').click(() => {
 
     prog.attr('value','4');
 
-    console.log('Going into loop');
     for (let row of raw_c) {
       let [hash, is_c] = row;
       if (is_c !== 1)
@@ -255,7 +269,7 @@ $('#btn-stats').click(() => {
 
       chart.badge = 'c'
     }
-    console.log('Done with scores');
+
 
     let avg_list = function(l) {
       if (l.length === 0)
@@ -266,6 +280,53 @@ $('#btn-stats').click(() => {
     console.log("Calcing");
 
     let score_list = Object.values(scores);
+
+    for (let s of score_list) {
+
+      let grade = 0.80;
+      if (s.score >= 9900000)
+        grade = 1.05;
+      else if (s.score >= 9800000)
+        grade = 1.02;
+      else if (s.score >= 9700000)
+        grade = 1.00;
+      else if (s.score >= 9500000)
+        grade = 0.97;
+      else if (s.score >= 9300000)
+        grade = 0.94;
+      else if (s.score >= 9000000)
+        grade = 0.91;
+      else if (s.score >= 8700000)
+        grade = 0.88;
+      else if (s.score >= 7500000)
+        grade = 0.85;
+      else if (s.score >= 6500000)
+        grade = 0.82;
+
+      let clear = ({
+        puc: 1.10,
+        uc: 1.05,
+        hc: 1.00,
+        hc: 1.02,
+        c: 1.00,
+        f: 0.50,
+      })[s.badge];
+
+      let vol = level * 2 * (s.score/10000000) * grade * clear;
+      vol = parseInt(vol) / 100;
+      if (best_vol.length < 50 || low_best_vol < vol) {
+        best_vol.push(vol);
+        if (best_vol.length > 50) {
+          best_vol = best_vol.sort().slice(-50);
+          low_best_vol = best_vol[0];
+        }
+      }
+    }
+
+    let total_vol = best_vol.reduce((a,b)=>a+b);
+    total_vol = parseInt(total_vol * 1000)/1000
+    volforce.text(`${total_vol} VF`);
+
     let avg = avg_list(score_list.map(x=>x.score));
     let clr_avg = avg_list(score_list.filter(x=>x.badge !== 'f').map(x=>x.score));
     let badges = {}
@@ -288,6 +349,7 @@ $('#btn-stats').click(() => {
   <td>${level}</td>
   <td>${nums(avg)}</td>
   <td>${nums(clr_avg)}</td>
+  <td>${nums(best_score)}</td>
   <td>${badges.c? badges.c : 0}</td>
   <td>${badges.hc? badges.hc : 0}</td>
   <td>${badges.uc? badges.uc : 0}</td>
