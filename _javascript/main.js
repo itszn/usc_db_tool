@@ -541,8 +541,6 @@ $('#btn-paths').click(() => {
   log('Finding main song folder');
   let old_path = await find_base_path();
 
-  console.log(all_rows.length);
-
   old_path = await get_input(
     'Original Song Directory Path',
     'This is our guess of your original song folder, modify it if not correct:',
