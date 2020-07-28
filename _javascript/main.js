@@ -229,7 +229,7 @@ $('#btn-stats').click(() => {
   do_stats();
 });
 
-function do_stats(where) {
+function do_stats(where='') {
 (async function() {
   running = true;
 
