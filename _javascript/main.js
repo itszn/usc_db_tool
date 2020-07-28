@@ -389,7 +389,6 @@ function do_stats(where='') {
       let clear = ({
         puc: 1.10,
         uc: 1.05,
-        hc: 1.00,
         hc: 1.02,
         c: 1.00,
         f: 0.50,
