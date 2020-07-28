@@ -476,11 +476,13 @@ async function find_folders(all_rows) {
       query('SELECT rowid, path, folderid from Charts').then(sql_all));
 
   let [base_dir,sep] = await find_base_path(all_rows);
+  base_dir += sep;
 
   log(`Base dir is ${base_dir}`);
 
   let dirs = new Set();
 
+  console.log(base_dir);
   for (let row of all_rows) {
     let path = row[1];
     path = path.slice(base_dir.length);
