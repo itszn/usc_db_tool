@@ -475,12 +475,9 @@ async function find_folders(all_rows) {
     all_rows =  await (
       query('SELECT rowid, path, folderid from Charts').then(sql_all));
 
-  let base_dir = await find_base_path(all_rows);
+  let [base_dir,sep] = await find_base_path(all_rows);
 
   log(`Base dir is ${base_dir}`);
-
-  let sep = all_rows[0][1][0] === '/'? '/' : '\\';
-  base_dir = base_dir + sep;
 
   let dirs = new Set();
 
@@ -529,7 +526,7 @@ async function find_base_path(all_rows) {
     }
 
   }
-  return possible_path.join(sep);
+  return [possible_path.join(sep), sep];
 }
 
 $('#btn-paths').click(() => {
@@ -539,7 +536,10 @@ $('#btn-paths').click(() => {
   running = true;
 
   log('Finding main song folder');
-  let old_path = await find_base_path();
+
+  let all_rows =  await (
+    query('SELECT rowid, path, folderid from Charts').then(sql_all));
+  let [old_path, sep] = await find_base_path(all_rows);
 
   old_path = await get_input(
     'Original Song Directory Path',
