@@ -135,12 +135,17 @@ function modal(title, body) {
   <div class="content">
     <h3 class="is-3">${esc(title)}</h3>
     <p>${body}</p>
-    <button class="button is-fullwidth">Ok</button>
+    <button class="button btno is-fullwidth">Ok</button>
+    <button class="button btnc is-fullwidth is-danger">Cancel</button>
   </div>
 </div>`);
-    c.find('button').click(x=>{
+    c.find('.btno').click(x=>{
       $('#modal').removeClass('is-active')
-      resolve();
+      resolve(true);
+    })
+    c.find('.btnc').click(x=>{
+      $('#modal').removeClass('is-active')
+      resolve(null);
     })
   });
 }
@@ -154,16 +159,105 @@ function get_input(title, body, val="") {
     <h3 class="is-3">${esc(title)}</h3>
     <p>${esc(body)}</p>
     <input class="input" type="text">
-    <button class="button is-fullwidth">Ok</button>
+    <button class="button btno is-fullwidth">Ok</button>
+    <button class="button btnc is-fullwidth is-danger">Cancel</button>
   </div>
 </div>`);
-    c.find('button').click(x=>{
+    c.find('.btno').click(x=>{
       $('#modal').removeClass('is-active')
       resolve(c.find('input')[0].value);
+    })
+    c.find('.btnc').click(x=>{
+      $('#modal').removeClass('is-active')
+      resolve(null);
     })
     c.find('input')[0].value = val;
   });
 }
+
+$('#btn-rename-col').click(() => {
+(async function() {
+  if (!has_database || running)
+    return;
+
+  running = true;
+
+  // Get a list of all collections
+  let collections = await (query(`SELECT DISTINCT collection from Collections`).then(sql_all));
+  console.log(collections);
+
+  if (collections.length === 0) {
+    log("No collections found...");
+    running = false;
+    return;
+  }
+
+  let body = '';
+  for (let f of collections) {
+    body += `
+<div class="field">
+<label class="radio">
+  <input type="radio" checked>
+  ${esc(f[0])}
+</label>
+</div>`;
+  }
+  let res = await modal('Select Collection To Rename',body);
+  if (res === null) {
+    running = false;
+    return;
+  }
+
+  let ops = $('#modal').find('input');
+
+  let old_name = null;
+  for (let i=0; i<collections.length; i++) {
+    let o = ops.eq(i);
+
+    if (!o[0].checked)
+      continue;
+
+    old_name = collections[i][0];
+    break;
+  }
+
+  if (old_name === null) {
+    log("No collection selected");
+    running = false;
+    return;
+  }
+
+
+  let new_name = await get_input(
+    'Rename Collection',
+    `Enter the new name for the "${old_name}" collection:`,
+     old_name 
+  );
+  if (new_name === null) {
+    running = false;
+    return;
+  }
+
+  if (new_name === old_name) {
+    log(`New name same as old...`);
+    running = false;
+    return;
+  }
+
+  log(`Renaming collection '${old_name}'...`);
+
+  res = await (query(
+    `UPDATE Collections SET collection=$newname where collection=$oldname`,{
+      '$oldname': old_name,
+      '$newname': new_name,
+    }).then(sql_all));
+
+  log(`Collection renamed to '${new_name}'`);
+
+  running = false;
+
+})().catch(show_error)
+});
 
 $('#btn-stats-folders').click(() => {
 (async function() {
@@ -186,7 +280,11 @@ $('#btn-stats-folders').click(() => {
 </label>
 </div>`;
   }
-  await modal('Select Folders To Collect Stats For',body);
+  let res = await modal('Select Folders To Collect Stats For',body);
+  if (res === null) {
+    running = false;
+    return;
+  }
 
   let ops = $('#modal').find('input');
   console.log(dirs);
@@ -547,6 +645,11 @@ $('#btn-paths').click(() => {
     'This is our guess of your original song folder, modify it if not correct:',
     old_path
   );
+  if (old_path=== null) {
+    running = false;
+    return;
+  }
+
   if (old_path[old_path.length-1] != sep)
     old_path += sep;
   log(`Old song path is ${old_path}`)
@@ -556,6 +659,11 @@ $('#btn-paths').click(() => {
     'Enter the new absolute song folder path you want to use:',
     old_path
   );
+  if (new_path === null) {
+    running = false;
+    return;
+  }
+
   if (new_path[new_path.length-1] != sep)
     new_path += sep;
   log(`New song path is ${new_path}`)
