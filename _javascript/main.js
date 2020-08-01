@@ -197,7 +197,7 @@ $('#btn-rename-col').click(() => {
     body += `
 <div class="field">
 <label class="radio">
-  <input type="radio" checked>
+  <input type="radio">
   ${esc(f[0])}
 </label>
 </div>`;
