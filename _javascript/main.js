@@ -111,8 +111,8 @@ worker.onmessage = () => {
 
   query('SELECT version from Database').then(sql_first).then(res=>{
     let [ver] = res;
-    if (ver != 14) {
-      show_error(`Database is version ${ver}. This app only supports databases with version 14`);
+    if (ver < 14 || ver > 15) {
+      show_error(`Database is version ${ver}. This app only supports databases with versions 14-15`);
       throw "Bad version";
     }
 
@@ -365,21 +365,27 @@ function do_stats(where='') {
     prog.attr('value','0');
 
     // Get all charts and their max scores
-    let raw_scores = await (query(`SELECT hash, (SELECT max(s.score) from Scores s where s.chart_hash=hash) from Charts where level=${level} ${where}`).then(sql_all));
+    let raw_scores = await (query(`SELECT hash, title, (SELECT max(s.score) from Scores s where s.chart_hash=hash) from Charts where level=${level} ${where}`).then(sql_all));
     console.log(raw_scores);
 
 
     let scores = {};
     let best_score  = 0;
     let best_hash = '';
+
     for (let row of raw_scores) {
-      let [hash, max_score] = row;
+      let [hash, name, max_score] = row;
       if (max_score === null)
         continue;
 
       if (max_score > best_score) {
         best_score = max_score;
         best_hash = hash;
+      }
+
+      if (hash in scores) {
+        log(`Duplicate charts found for '${name}'`);
+        continue;
       }
 
       scores[hash] = {
