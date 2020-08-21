@@ -111,8 +111,8 @@ worker.onmessage = () => {
 
   query('SELECT version from Database').then(sql_first).then(res=>{
     let [ver] = res;
-    if (ver < 14 || ver > 15) {
-      show_error(`Database is version ${ver}. This app only supports databases with versions 14-15`);
+    if (ver < 14 || ver > 16) {
+      show_error(`Database is version ${ver}. This app only supports databases with versions 14-16`);
       throw "Bad version";
     }
 
