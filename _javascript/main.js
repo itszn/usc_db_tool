@@ -222,6 +222,7 @@ $('#btn-remove-col').click(() => {
       `DELETE FROM Collections WHERE collection=$oldname`,{
       '$oldname': old_name,
     }).then(sql_all));
+    deleted++;
   }
 
   log(`Deleted ${deleted} collection(s)`);
