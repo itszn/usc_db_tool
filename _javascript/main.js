@@ -175,6 +175,62 @@ function get_input(title, body, val="") {
   });
 }
 
+$('#btn-remove-col').click(() => {
+(async function() {
+  if (!has_database || running)
+    return;
+
+  running = true;
+
+  // Get a list of all collections
+  let collections = await (query(`SELECT DISTINCT collection from Collections`).then(sql_all));
+  console.log(collections);
+
+  if (collections.length === 0) {
+    log("No collections found...");
+    running = false;
+    return;
+  }
+
+  let body = '';
+  for (let f of collections) {
+    body += `
+<div class="field">
+<label class="checkbox">
+  <input type="checkbox">
+  ${esc(f[0])}
+</label>
+</div>`;
+  }
+  let res = await modal('Select Collection To Delete',body);
+  if (res === null) {
+    running = false;
+    return;
+  }
+
+  let ops = $('#modal').find('input');
+
+  let deleted = 0;
+  for (let i=0; i<collections.length; i++) {
+    let o = ops.eq(i);
+
+    if (!o[0].checked)
+      continue;
+
+    let old_name = collections[i][0];
+    res = await (query(
+      `DELETE FROM Collections WHERE collection=$oldname`,{
+      '$oldname': old_name,
+    }).then(sql_all));
+  }
+
+  log(`Deleted ${deleted} collection(s)`);
+
+  running = false;
+
+})().catch(show_error)
+});
+
 $('#btn-rename-col').click(() => {
 (async function() {
   if (!has_database || running)
