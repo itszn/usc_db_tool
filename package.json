@@ -31,18 +31,28 @@
   "bugs": {
     "url": "https://github.com/jgthms/bulma-start/issues"
   },
+  "browserify": {
+    "transform": [
+      "sourceify"
+    ]
+  },
   "bundleDependencies": false,
   "deprecated": false,
   "description": "Start package for Bulma",
   "devDependencies": {
+    "@babel/core": "^7.12.10",
+    "@babel/plugin-transform-runtime": "^7.12.10",
+    "@babel/preset-env": "^7.12.10",
     "autoprefixer": "^9.7.6",
-    "babel-cli": "^6.26.0",
-    "babel-preset-env": "^1.7.0",
-    "babel-preset-es2015-ie": "^6.7.0",
+    "babelify": "^10.0.0",
+    "browserify": "^17.0.0",
     "bulma": "^0.8.2",
     "node-sass": "^4.13.1",
     "npm-run-all": "^4.1.5",
-    "postcss-cli": "^7.1.0"
+    "postcss-cli": "^7.1.0",
+    "sourceify": "^1.0.0",
+    "uglify-js": "^3.12.1",
+    "watchify": "^3.11.1"
   },
   "homepage": "https://github.com/jgthms/bulma-start#readme",
   "keywords": [
@@ -63,10 +73,13 @@
     "css-postcss": "postcss --use autoprefixer --output css/main.css css/main.css",
     "css-watch": "npm run css-build -- --watch",
     "deploy": "npm run css-deploy && npm run js-build && sed \"s/{{CACHE_KILLER}}/$(cat /dev/urandom | xxd -p | head -c 16)/g\" _index.html > index.html",
-    "js-build": "babel _javascript --out-dir lib",
-    "js-watch": "npm run js-build -- --watch",
+    "js-build": "browserify _javascript/main.js -t [ babelify ] | uglifyjs > lib/main.js",
+    "dev": "npm run css-build -- --watch & watchify _javascript/main.js --debug -o lib/main.js -t [ babelify ] & (cd _dev_reload && reload)",
     "reload": "reload",
     "start": "npm-run-all --parallel css-watch js-watch reload"
   },
-  "version": "0.0.4"
+  "version": "0.0.4",
+  "dependencies": {
+    "babel-cli": "^7.0.0-beta.3"
+  }
 }
