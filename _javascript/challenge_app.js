@@ -195,7 +195,7 @@ async function ask_for_req(cur, override, el) {
       }
     });
   }
-  modal_button_list("asdf","asdf",opts)
+  modal_button_list("Select Option To Add",`Select option to add to ${override?'this chart':'this challenge'}:`,opts)
 }
 
 $('.global-add-req').click(async function() {
@@ -230,7 +230,7 @@ $('#add-chart').click(async function() {
             return resolve(null);
           let level = await get_input(
             'Add Manual Chart',
-            `Enter level of <br>${esc(name)}</br>:`,'','Chart Level',true);
+            `Enter level of <b>${esc(name)}</b>:`,'','Chart Level',true);
           if (level === null)
             return resolve(null);
           add_chart({name:name, level:parseInt(level)},
