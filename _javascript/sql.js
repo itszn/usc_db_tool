@@ -1,4 +1,4 @@
-import { log, log_h, show_error } from "./log.js"
+import { log, log_h, show_error, clear_error } from "./log.js"
 
 const wasm_supported = (() => {
     try {
@@ -81,6 +81,7 @@ function start_sql(file) {
         has_database = true;
 
         log(`USC Database loaded (version ${ver})`)
+        clear_error();
         resolve()
       });
     }

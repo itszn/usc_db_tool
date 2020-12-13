@@ -28,8 +28,9 @@ $primary-invert: $pink-invert;
 
 @import "../node_modules/bulma/bulma";
 
-.hidden {
-    display: none;
+
+.fullwidth {
+    width: 100%;
 }
 
 .app-box {
@@ -37,4 +38,73 @@ $primary-invert: $pink-invert;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
+}
+
+.chart-box {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.chart-box > .card {
+    min-height: 150px;
+    padding-top: 18px;
+}
+
+#add-chart>.card:hover {
+    box-shadow: 0 0.5em 1em -0.125em rgba(10, 10, 10, 0.3), 0 0px 0 1px rgba(10, 10, 10, 0.02);
+    transition: box-shadow 0.25s;
+}
+
+
+#add-chart {
+    cursor: pointer;
+
+}
+
+.level-input {
+    position: relative;
+}
+.level-input > input {
+    background: transparent;
+    color: transparent;
+    caret-color: rgb(74, 74, 74);
+}
+
+.level-value {
+    position: absolute;
+    flex: 1;
+    pointer-events: none;
+    padding-top: 9px;
+    padding-bottom: 7px;
+    padding-right: 11px;
+    padding-left: 12px;
+    top: 0;
+    left: 0;
+}
+
+.hidden {
+    display: none;
+}
+
+.chart-x {
+    padding-left: 4px;
+    cursor: pointer;
+    font-size: 22px;
+}
+
+.req-x {
+    padding-left: 0px;
+    cursor: pointer;
+    font-size: 18px;
+}
+
+.overflow-wrap {
+    white-space: nowrap;
+    overflow-x: hidden;
+    text-overflow: ellipsis;
+}
+.overflow-wrap:hover {
+    white-space: normal;
 }
