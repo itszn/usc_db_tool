@@ -6,10 +6,15 @@ import { esc, modal, get_input } from "./util.js"
 const inputElement = document.getElementById("database");
 inputElement.addEventListener("change", async function() {
 	const file = this.files[0];
-  $('#inputdb').hide();
+  $('#app-select').hide();
 
   await start_sql(file);
-  $('#actions').show();
+  $('#database-app').show();
   database_app();
 }, false);
 
+$('#newchal').click(async function() {
+  $('#app-select').hide();
+  $('#course-app').show();
+	
+});
