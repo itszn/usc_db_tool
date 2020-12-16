@@ -1,6 +1,7 @@
 import { start_sql, query, sql_first,
          sql_all, download, has_database } from  "./sql.js"
 import { log, log_h, show_error } from "./log.js"
+import { esc, modal, get_input } from "./util.js"
 
 function database_app() {
 
