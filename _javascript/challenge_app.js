@@ -133,6 +133,12 @@ const reqs = [
     txt:"Mirror Mode Enabled",
     opt:true
   },
+  {
+    id:"gauge_carry_over", type:'bool',
+    txt:"Gauge carry over",
+    opt:true,
+    overrideable: false
+  },
   {id:"clear", txt:"Do not require clear to pass", type:'bool', opt:true, val:false},
   {id:"excessive_gauge", txt:"Use effective gauge", type:'bool', opt:true, val:false, isDefault: true},
   {id:"allow_ars", txt:"Allow player to use ARS (gauge fallback)", type:'bool', val:true, isDefault: true},
