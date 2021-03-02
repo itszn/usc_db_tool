@@ -66,6 +66,7 @@ async function add_chart(ident, title, level, meta) {
 const reqs = [
   {id:"clear", txt:"Require clear to pass", type:'bool', opt:true, val:true},
   {id:"excessive_gauge", txt:"Play on excessive", type:'bool', val:true},
+  {id:"ars", txt:"Force ARS (gauge fallback)", type:'bool', val:true},
   {
     id:"min_average_percentage", type:'int',
     txt:"Require average clear %",
@@ -133,7 +134,11 @@ const reqs = [
     opt:true
   },
   {id:"clear", txt:"Do not require clear to pass", type:'bool', opt:true, val:false},
-  {id:"excessive_gauge", txt:"Use effective gauge", type:'bool', opt:true, val:false},
+  {id:"excessive_gauge", txt:"Use effective gauge", type:'bool', opt:true, val:false, isDefault: true},
+  {id:"allow_ars", txt:"Allow player to use ARS (gauge fallback)", type:'bool', val:true, isDefault: true},
+  {id:"allow_ars", txt:"Do Not Allow player to use ARS (gauge fallback)", type:'bool', val:false},
+  {id:"allow_excessive", txt:"Allow player to use excessive gauge", type:'bool', val:true, isDefault: true},
+  {id:"allow_excessive", txt:"Do Not Allow player to use excessive gauge", type:'bool', val:false},
 ]
 
 
@@ -179,6 +184,10 @@ async function ask_for_req(cur, override, el) {
       continue;
     if (override && r.overrideable===false)
       continue;
+    if (r.isDefault) {
+      if (!override)
+        continue;
+    }
     let title = (override && req.otxt)? req.otxt : req.txt
     opts.push({
       title: title,
@@ -362,7 +371,6 @@ $('#download').click(async function() {
 
 add_req(challenge.global, reqs[0], true, false, $('#global-reqs'));
 //add_req(challenge.global, {id:'excessive_gauge'}, false, false, $('#global-reqs'));
-  
 }
 
 export { challenge_app }

@@ -73,8 +73,8 @@ function start_sql(file) {
 
       query('SELECT version from Database').then(sql_first).then(res=>{
         let [ver] = res;
-        if (ver < 14 || ver > 18) {
-          show_error(`Database is version ${ver}. This app only supports databases with versions 14-17`);
+        if (ver < 14 || ver > 19) {
+          show_error(`Database is version ${ver}. This app only supports databases with versions 14-19`);
           reject("Bad version");
         }
 
