@@ -65,7 +65,20 @@ async function add_chart(ident, title, level, meta) {
 
 const reqs = [
   {id:"clear", txt:"Require clear to pass", type:'bool', opt:true, val:true},
-  {id:"excessive_gauge", txt:"Play on excessive", type:'bool', val:true},
+  {id:"excessive_gauge", txt:"Play with excessive gauge", type:'bool', val:true,
+    notWhen: ['effective_gauge','permissive_gauge','blastive_gauge','gauge_level']
+  },
+  {id:"permissive_gauge", txt:"Play with permissive gauge", type:'bool', val:true,
+    notWhen: ['effective_gauge','excessive_gauge','blastive_gauge','gauge_level'],
+    alsoSet: {'excessive_gauge':false, 'blastive_gauge':false},
+  },
+  {
+    id:"gauge_level", type:'float',
+    txt:"Play with blastive gauge",
+    ftxt:"Play With blastive gauge {0}★",
+    notWhen: ['effective_gauge','excessive_gauge','permissive_gauge'],
+    alsoSet: {'blastive_gauge':true, 'permissive_gauge': false, 'excessive_gauge': false},
+  },
   {id:"ars", txt:"Force ARS (gauge fallback)", type:'bool', val:true},
   {
     id:"min_average_percentage", type:'int',
@@ -140,11 +153,23 @@ const reqs = [
     overrideable: false
   },
   {id:"clear", txt:"Do not require clear to pass", type:'bool', opt:true, val:false},
-  {id:"excessive_gauge", txt:"Use effective gauge", type:'bool', opt:true, val:false, isDefault: true},
+  {
+    id:'effective_gauge',
+    txt: 'Play with effective gauge',
+    opt:true,
+    dummy: true,
+    default: true,
+    notWhen: ['excessive_gauge', 'permissive_gauge', 'blastive_gauge','gauge_level'],
+    alsoSet: {'excessive_gauge': false, 'permissive_gauge': false, 'blastive_gauge': false}
+  },
   {id:"allow_ars", txt:"Allow player to use ARS (gauge fallback)", type:'bool', val:true, isDefault: true},
   {id:"allow_ars", txt:"Do Not Allow player to use ARS (gauge fallback)", type:'bool', val:false},
   {id:"allow_excessive", txt:"Allow player to use excessive gauge", type:'bool', val:true, isDefault: true},
   {id:"allow_excessive", txt:"Do Not Allow player to use excessive gauge", type:'bool', val:false},
+  {id:"allow_permissive", txt:"Allow player to use permissive gauge", type:'bool', val:true, isDefault: true},
+  {id:"allow_permissive", txt:"Do Not Allow player to use permissive gauge", type:'bool', val:false},
+  {id:"allow_blastive", txt:"Allow player to use blastive gauge", type:'bool', val:true, isDefault: true},
+  {id:"allow_blastive", txt:"Do Not Allow player to use blastive gauge", type:'bool', val:false},
 ]
 
 
@@ -194,6 +219,28 @@ async function ask_for_req(cur, override, el) {
       if (!override)
         continue;
     }
+    if (r.onlyWhen) {
+      let good = false;
+      for (let dep of r.onlyWhen) {
+        if (dep in cur && cur[dep].val) {
+          good = true;
+          break;
+        }
+      }
+      if (!good)
+        continue;
+    }
+    if (r.notWhen) {
+      let good = true;
+      for (let dep of r.notWhen) {
+        if (dep in cur && cur[dep].val) {
+          good = false;
+          break;
+        }
+      }
+      if(!good)
+        continue;
+    }
     let title = (override && req.otxt)? req.otxt : req.txt
     opts.push({
       title: title,
@@ -203,6 +250,9 @@ async function ask_for_req(cur, override, el) {
           val = true;
           if (req.type === 'int') {
             val = parseInt(await get_input("Enter value",`Enter value for <code>${title}</code>`,'','',true));
+          }
+          else if (req.type === 'float') {
+            val = parseFloat(await get_input("Enter value",`Enter value for <code>${title}</code>`,'','',true));
           }
         }
         add_req(cur, req, val, override, el);
@@ -342,24 +392,39 @@ $('#download').click(async function() {
 
   for (let t of Object.entries(challenge.global)) {
     let [id, obj] = t;
-    let val = obj.val;
-    if (obj.req.trans) {
-      val = obj.req.trans(val);
+    if (!obj.req.dummy) {
+      let val = obj.val;
+      if (obj.req.trans) {
+        val = obj.req.trans(val);
+      }
+      data.global[id] = obj.val;
     }
-    data.global[id] = obj.val;
+    if (obj.req.alsoSet) {
+      for (let t of Object.entries(obj.req.alsoSet)) {
+        let [id, val] = t;
+        data.global[id] = val;
+      }
+    }
   }
   for (let chart of challenge.charts) {
     data.charts.push(chart.ident);
 
     let over = {};
     for (let t of Object.entries(chart.reqs)) {
-      console.log(t);
       let [id, obj] = t;
-      let val = obj.val;
-      if (obj.req.trans) {
-        val = obj.req.trans(val);
+      if (!obj.req.dummy) {
+        let val = obj.val;
+        if (obj.req.trans) {
+          val = obj.req.trans(val);
+        }
+        over[id] = obj.val;
       }
-      over[id] = obj.val;
+      if (obj.req.alsoSet) {
+        for (let t of Object.entries(obj.req.alsoSet)) {
+          let [id, val] = t;
+          over[id] = val;
+        }
+      }
     }
     console.log(over);
     data.overrides.push(over);
