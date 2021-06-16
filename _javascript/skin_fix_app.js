@@ -21,7 +21,7 @@ const fixes = {
       did_anything = true;
       return 'gameplay.gauge.value';
     });
-    out = txt.replaceAll(/gameplay\.gaugeType/mg,(x,y,z)=>{
+    out = out.replaceAll(/gameplay\.gaugeType/mg,(x,y,z)=>{
       did_anything = true;
       return 'gameplay.gauge.type';
     });
@@ -54,11 +54,11 @@ const fixes = {
       did_anything = true;
       return 'result.mirror'
     });
-    out = txt.replaceAll(/result.flags\s*&\s*3?/mg,()=>{
+    out = out.replaceAll(/result.flags\s*&\s*3?/mg,()=>{
       did_anything = true;
       return 'result.random'
     });
-    out = txt.replaceAll(/result.flags(\s*&\s*1)?/mg,(m,op)=>{
+    out = out.replaceAll(/result.flags(\s*&\s*1)?/mg,(m,op)=>{
       did_anything = true;
       return 'result.gauge_type';
     });

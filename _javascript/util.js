@@ -70,7 +70,7 @@ function get_input(title, body, val="", placeholder="", number=false) {
     <p>${body}</p>
     <input class="input" type="${number?'number':'text'}" placeholder="${placeholder}">
     <button class="button btno is-fullwidth mt-3">Ok</button>
-    <button class="button btnc is-fullwidth mt-1 is-danger">Cancel</button>
+    <button class="button btnc is-fullwidth mt-1 is-danger">Cancel</b utton>
   </div>
 </div>`);
     c.find('.btno').click(x=>{
@@ -93,7 +93,6 @@ function get_file(title, body, label="", ext=false, expected_name=undefined, typ
   <div class="content">
     <h3 class="is-3">${esc(title)}</h3>
     <p class="modal-body">${body}</p>
-    <div class="modal-error"></div>
     <label class="file-label" style="width: 100%">
       <input class="file-input" type="file" ${ext? `accept="${ext}"`:``}>
       <span class="file-cta has-text-centered" style="width: 100%; flex-direction: column;">
@@ -102,10 +101,20 @@ function get_file(title, body, label="", ext=false, expected_name=undefined, typ
         </span>
       </span>
     </label>
+    <div class="modal-error"></div>
+    <button class="button btno is-fullwidth mt-3" style="display: none">I know what I'm doing</button>
     <button class="button btnc is-fullwidth mt-1 is-danger">Cancel</button>
   </div>
 </div>`);
     let file = undefined;
+
+    let read = async function(file) {
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        resolve(evt.target.result);
+      }
+      reader.['readAs'+(type.name || type)](file);
+    }
     c.find('.file-input').on('change', async function() {
       file = this.files[0];
       if (file === undefined)
@@ -113,18 +122,19 @@ function get_file(title, body, label="", ext=false, expected_name=undefined, typ
 
       c.find('.expected-file-error').remove();
       if (expected_name && file.name !== expected_name) {
-        file = undefined;
+        c.find('.btno').show();
         c.find('.modal-error').append($(`<div class="expected-file-error"><strong>Please only select ${expected_name}</strong></div>`));
         return;
       }
       $('#modal').removeClass('is-active')
-
-      const reader = new FileReader();
-      reader.onload = function(evt) {
-        resolve(evt.target.result);
-      }
-      reader.['readAs'+(type.name || type)](file);
+      read(file);
     });
+    c.find('.btno').click(x=>{
+      if (file === undefined)
+        return;
+      $('#modal').removeClass('is-active')
+      read(file);
+    })
     c.find('.btnc').click(x=>{
       $('#modal').removeClass('is-active')
       resolve(null);
