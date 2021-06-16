@@ -4,13 +4,14 @@ import { download, get_file, esc, modal, get_input } from "./util.js"
 const fixes = {
   async gauge_fix() {
     location.hash = 'fixskin#gauge_fix';
-    let txt = await get_file(
+    let [txt,fname] = await get_file(
       'Open scripts\\gameplay.lua',
       'We can hopefully fix this by modifying <code>scripts\\gameplay.lua</code><br/>Just to be safe, you should make a copy of the file first',
       'Select scripts\\gameplay.lua',
       '.lua',
       'gameplay.lua',
       Text);
+    console.log(txt);
     if (txt === null) {
       location.hash = 'fixskin';
       return;
@@ -27,7 +28,7 @@ const fixes = {
     });
 
     if (did_anything) {
-      download('gameplay.lua',out);
+      download(fname,out);
     }
     else {
       modal(
@@ -38,7 +39,7 @@ const fixes = {
 
   async flags_fix() {
     location.hash = 'fixskin#flags_fix';
-    let txt = await get_file(
+    let [txt,fname] = await get_file(
       'Open scripts\\result.lua',
       'We can hopefully fix this by modifying <code>scripts\\result.lua</code><br/>Just to be safe, you should make a copy of the file first',
       'Select scripts\\result.lua',
@@ -63,7 +64,7 @@ const fixes = {
       return 'result.gauge_type';
     });
     if (did_anything) {
-      download('result.lua',out);
+      download(fname,out);
     }
     else {
       modal(

@@ -111,9 +111,9 @@ function get_file(title, body, label="", ext=false, expected_name=undefined, typ
     let read = async function(file) {
       const reader = new FileReader();
       reader.onload = function(evt) {
-        resolve(evt.target.result);
+        resolve([evt.target.result, file.name]);
       }
-      reader.['readAs'+(type.name || type)](file);
+      reader['readAs'+(type.name || type)](file);
     }
     c.find('.file-input').on('change', async function() {
       file = this.files[0];
@@ -137,7 +137,7 @@ function get_file(title, body, label="", ext=false, expected_name=undefined, typ
     })
     c.find('.btnc').click(x=>{
       $('#modal').removeClass('is-active')
-      resolve(null);
+      resolve([null,null]);
     })
   });
 }
