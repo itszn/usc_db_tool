@@ -74,8 +74,6 @@ const fixes = {
 }
 
 function skin_app(file) {
-
-  modal
   if (location.hash.length > 0) {
     let f = location.hash.split('#')[2];
     let fix = fixes[f];

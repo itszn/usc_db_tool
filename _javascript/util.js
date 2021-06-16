@@ -115,6 +115,7 @@ function get_file(title, body, label="", ext=false, expected_name=undefined, typ
       if (expected_name && file.name !== expected_name) {
         file = undefined;
         c.find('.modal-error').append($(`<div class="expected-file-error"><strong>Please only select ${expected_name}</strong></div>`));
+        return;
       }
       $('#modal').removeClass('is-active')
 
