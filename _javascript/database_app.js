@@ -396,18 +396,19 @@ function do_stats(where='') {
     }
 
     let total_vol = best_vol.reduce((a,b)=>a+b);
-    total_vol = parseInt(total_vol * 1000)/1000
+    total_vol = parseInt(total_vol * 1000)/1000;
+    total_vol = Math.max(0, total_vol);
     let vf_classes = [
-      [0.0, 'Sienna', 'brown', 'white', [0, 2.5, 5.0, 7.5]],
-      [10.0, 'Cobalt', 'navy', 'white', [10, 10.5, 11.0, 11.5]],
-      [12.0, 'Dandelion', '#fcc800', 'black', [12.0, 12.5, 13.0, 13.5]],
-      [14.0, 'Cyan', '#25b7c0', 'black', [14.0, 14.25, 14.5, 14.75]],
-      [15.0, 'Scarlet', '#f73562', 'white' [15.0, 15.25, 15.5, 15.75]],
-      [16.0, 'Coral', '#ff69b4', 'white', [16.0, 16.25, 16.5, 16.75]],
-      [17.0, 'Argento', '#d5ddef', 'black', [17.0, 17.25, 17.5, 17.75]],
-      [18.0, 'Eldora', 'gold', 'black', [18.0, 18.25, 18.5, 18.75]],
-      [19.0, 'Crimson', 'red', 'white', [19.0, 19.25, 19.5, 19.75]],
-      [20.0, 'Imperial', 'purple', 'white', [20.0, 21.0, 22.0, 23.0]]
+      [0.0,  'Sienna',    'brown',   'white', [0,    2.5,   5.0,  7.5]],
+      [10.0, 'Cobalt',    'navy',    'white', [10,   10.5,  11.0, 11.5]],
+      [12.0, 'Dandelion', '#fcc800', 'black', [12.0, 12.5,  13.0, 13.5]],
+      [14.0, 'Cyan',      '#25b7c0', 'black', [14.0, 14.25, 14.5, 14.75]],
+      [15.0, 'Scarlet',   '#f73562', 'white'  [15.0, 15.25, 15.5, 15.75]],
+      [16.0, 'Coral',     '#ff69b4', 'white', [16.0, 16.25, 16.5, 16.75]],
+      [17.0, 'Argento',   '#d5ddef', 'black', [17.0, 17.25, 17.5, 17.75]],
+      [18.0, 'Eldora',    'gold',    'black', [18.0, 18.25, 18.5, 18.75]],
+      [19.0, 'Crimson',   'red',     'white', [19.0, 19.25, 19.5, 19.75]],
+      [20.0, 'Imperial',  'purple',  'white', [20.0, 21.0,  22.0, 23.0]]
     ];
 
     let vf_class;
@@ -417,9 +418,16 @@ function do_stats(where='') {
     }
 
     let stars = 1;
-    for (let i=0; i<vf_class[4].length; i++) {
-      if (total_vol > vf_class[4][i])
-        stars = i+1;
+    if (!Array.isArray(vf_class) || vf_class.length < 5) {
+      try {
+        console.error(vf_class, typeof(vf_class), Array.isArray(vf_class));
+      } catch(e) {}
+      vf_class = [0.0, 'Unknown', 'red','red', [0,    2.5,   5.0,  7.5]];
+    } else {
+      for (let i=0; i<vf_class[4].length; i++) {
+        if (total_vol > vf_class[4][i])
+          stars = i+1;
+      }
     }
 
     volforce.text(`${total_vol} VF (${vf_class[1]} ${'\u2605'.repeat(stars)})`);
