@@ -548,7 +548,7 @@ function do_stats(where='') {
 
     if (grade_s !== '') {
       body.append($(`
-<tr class="grade-line" style="white-space: initial;">
+<tr class="grade-line" style="white-space: initial;${show_grades?'':'display:none'}">
   <td></td>
   <td colspan="8">
   <div class="field is-grouped is-grouped-multiline">
