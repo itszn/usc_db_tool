@@ -23,7 +23,7 @@ function query(sql, params={}) {
     let sid = sqlid++;
     window.sql_cbs[sid] = resolve;
 
-    console.log('running');
+    //console.log('running');
     worker.postMessage({
       id: sid,
       action: "exec",
@@ -45,6 +45,7 @@ function sql_all(results) {
   return results.values;
 }
 
+let db_version = null;
 function start_sql(file) {
   return new Promise((resolve, reject) => {
     if (wasm_supported) {
@@ -54,11 +55,11 @@ function start_sql(file) {
       worker = new Worker('./lib/worker.sql-asm.js');
     }
     worker.onmessage = () => {
-      console.log("Database opened");
+      //console.log("Database opened");
 
       worker.onmessage = event => {
         let data = event.data;
-        console.log(data)
+        //console.log(data)
         if (data.id in window.sql_cbs) {
           let cb = window.sql_cbs[data.id];
           delete window.sql_cbs[data.id];
@@ -78,6 +79,7 @@ function start_sql(file) {
           reject("Bad version");
         }
 
+        db_version = ver;
         has_database = true;
 
         log(`USC Database loaded (version ${ver})`)
@@ -86,11 +88,11 @@ function start_sql(file) {
       });
     }
 
-    console.log(file);
+    //console.log(file);
     const reader = new FileReader();
     reader.onload = function(evt) {
       let db = evt.target.result
-      console.log(db);
+      //console.log(db);
       worker.postMessage({
         id:sqlid++,
         action:"open",
@@ -131,4 +133,4 @@ function download() {
 }
 
 
-export { start_sql, query, sql_first, sql_all, download, has_database };
+export { start_sql, query, sql_first, sql_all, download, has_database, db_version };

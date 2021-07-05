@@ -1,9 +1,13 @@
 import { start_sql, query, sql_first,
-         sql_all, download, has_database } from  "./sql.js"
+         sql_all, download, has_database, db_version } from  "./sql.js"
 import { log, log_h, show_error } from "./log.js"
 import { esc, modal, get_input } from "./util.js"
 
 function database_app() {
+
+$('html').css('overflowY','hidden');
+$('#log').parent().prepend($('#errormsg'))
+$('.column.is-3').prepend($('#pagetitle').css('textAlign','center'));
 
 let running = false;
 
@@ -16,7 +20,6 @@ $('#btn-remove-col').click(() => {
 
   // Get a list of all collections
   let collections = await (query(`SELECT DISTINCT collection from Collections`).then(sql_all));
-  console.log(collections);
 
   if (collections.length === 0) {
     log("No collections found...");
@@ -73,7 +76,6 @@ $('#btn-rename-col').click(() => {
 
   // Get a list of all collections
   let collections = await (query(`SELECT DISTINCT collection from Collections`).then(sql_all));
-  console.log(collections);
 
   if (collections.length === 0) {
     log("No collections found...");
@@ -157,7 +159,6 @@ $('#btn-stats-folders').click(() => {
 
   let [dirs, base_dir] = await find_folders();
   dirs = Array.from(dirs.values());
-  console.log(dirs)
 
   let body = '';
   for (let f of dirs) {
@@ -176,14 +177,11 @@ $('#btn-stats-folders').click(() => {
   }
 
   let ops = $('#modal').find('input');
-  console.log(dirs);
-  console.log(ops);
 
   let where = [];
   for (let i=0; i<dirs.length; i++) {
     let o = ops.eq(i);
 
-    console.log(o[0], o[0].checked);
     if (!o[0].checked)
       continue;
 
@@ -192,7 +190,6 @@ $('#btn-stats-folders').click(() => {
     where.push(`path LIKE "${spath}%"`)
   }
 
-  console.log(where);
 
   if (where.length == 0) {
     await do_stats('');
@@ -200,7 +197,6 @@ $('#btn-stats-folders').click(() => {
   }
 
   where = ` AND (${where.join(' OR ')})`
-  console.log(where);
 
   await do_stats(where);
 
@@ -220,7 +216,27 @@ function do_stats(where='') {
 (async function() {
   running = true;
 
+  $('#log').empty()
   log("Starting stat collection. This may take a few minutes");
+
+  let volforce = $(`<div style="white-space: initial;">
+<div style="display: inline-block">
+  <div class="tags has-addons mb-0 mt-3">
+    <span class="tag vf is-dark">0 VF</span>
+    <span class="tag vfclass"></span>
+  </div>
+</div>
+<label class="checkbox">
+  <input type="checkbox" checked>
+  Show Grades 
+</label>
+</div>`);
+  $('#log').append(volforce);
+  let show_grades = true;
+  volforce.find('input').on('change',()=>{
+    show_grades = !show_grades;
+    $('.grade-line')[show_grades?'show':'hide']();
+  });
 
   let table = $('<table>').html(`
 <thead>
@@ -229,9 +245,10 @@ function do_stats(where='') {
   <th>Clear Average</th>
   <th>Best Score</th>
   <th># Clear</th>
-  <th># Ex Clear</th>
+  <th># Ex</th>
   <th># UC</th>
   <th># PUC</th>
+  <th># Not Clear</th>
 </thead>
 <tbody>
 </tbody>`);
@@ -239,10 +256,20 @@ function do_stats(where='') {
   $('#log').append(table);
 
   let prog = $('<progress value="0" max="4" style="width:100%"></progress>');
-  $('#log').append(prog);
+  $('#log').append($('<div>').append(prog));
+  $('#log').append($(`<h3>Top 50 Volforce</h33>`));
 
-  let volforce = $('<div>0 VF</div>');
-  $('#log').append(volforce);
+  let vol_table = $('<table>').html(`
+<thead>
+  <th>VF</th>
+  <th>Score</th>
+  <th>Chart</th>
+</thead>
+<tbody>
+</tbody>
+`);
+  $('#log').append(vol_table);
+
 
   let low_best_vol = 0;
   let best_vol = [];
@@ -252,21 +279,29 @@ function do_stats(where='') {
 
     // Get all charts and their max scores
     let raw_scores = await (query(`SELECT hash, title, (SELECT max(s.score) from Scores s where s.chart_hash=hash) from Charts where level=${level} ${where}`).then(sql_all));
-    console.log(raw_scores);
+    let chart_count = raw_scores.length;
 
 
     let scores = {};
-    let best_score  = 0;
-    let best_hash = '';
+    let charts = {};
+    let best_score  = {score:0, hash:null};
+
+    async function get_chart(hash) {
+        let chart = charts[hash];
+        if (!chart) {
+          chart = await (query(`SELECT * from Charts where hash="${hash}" LIMIT 1`).then(sql_first));
+          charts[hash] = chart;
+        }
+        return chart;
+    }
 
     for (let row of raw_scores) {
       let [hash, name, max_score] = row;
       if (max_score === null)
         continue;
 
-      if (max_score > best_score) {
-        best_score = max_score;
-        best_hash = hash;
+      if (max_score > best_score.score) {
+        best_score = {score:max_score, hash};
       }
 
       if (hash in scores) {
@@ -279,18 +314,16 @@ function do_stats(where='') {
         badge: max_score === 10000000? 'puc' : 'f' // Fail will be updated below,
       };
     }
-
     prog.attr('value','1');
 
     if (Object.keys(scores).length === 0) {
-      body.append($(`<tr><td>${level}</td><td><b>0000</b>000</td><td><b>0000</b>000</td><td><b>0000</b>000</td><td>0</td><td>0</td><td>0</td><td>0</td></tr>`));
+      body.append($(`<tr><td>${level}</td><td><b>0000</b>000</td><td><b>0000</b>000</td><td><b>0000</b>000</td><td>0</td><td>0</td><td>0</td><td>0</td><td>${chart_count}</td></tr>`));
       continue;
 
     }
 
     // Check if any charts have a UC
     let raw_misses = await (query(`SELECT hash, (SELECT 1 from Scores s where s.chart_hash=hash and s.miss=0 limit 1) from Charts where level=${level} ${where}`).then(sql_all));
-    console.log(raw_misses);
 
 
     for (let row of raw_misses) {
@@ -308,8 +341,13 @@ function do_stats(where='') {
     prog.attr('value','2');
 
     // Check if any charts were using excessive
-    let raw_ex = await (query(`SELECT hash, (SELECT 1 from Scores s where s.chart_hash=hash and s.gameflags&1=1 and s.gauge>0 limit 1) from Charts where level=${level} ${where}`).then(sql_all));
-    console.log(raw_ex);
+    let raw_ex;
+    if (db_version > 17) {
+      raw_ex = await (query(`SELECT hash, (SELECT 1 from Scores s where s.chart_hash=hash and s.gauge_type=1 and s.gauge>0 limit 1) from Charts where level=${level} ${where}`).then(sql_all));
+
+    } else {
+      raw_ex = await (query(`SELECT hash, (SELECT 1 from Scores s where s.chart_hash=hash and s.gameflags&1=1 and s.gauge>0 limit 1) from Charts where level=${level} ${where}`).then(sql_all));
+    }
 
     for (let row of raw_ex) {
       let [hash, is_hc] = row;
@@ -326,8 +364,13 @@ function do_stats(where='') {
     prog.attr('value','3');
 
     // Check if any charts were cleared
-    let raw_c = await (query(`SELECT hash, (SELECT 1 from Scores s where s.chart_hash=hash and s.gameflags&1=0 and s.gauge>0.7 limit 1) from Charts where level=${level} ${where}`).then(sql_all));
-    console.log(raw_c);
+    let raw_c;
+    if (db_version > 17) {
+      raw_c = await (query(`SELECT hash, (SELECT 1 from Scores s where s.chart_hash=hash and s.gauge_type=0 and s.gauge>0.7 limit 1) from Charts where level=${level} ${where}`).then(sql_all));
+    } else {
+      raw_c = await (query(`SELECT hash, (SELECT 1 from Scores s where s.chart_hash=hash and s.gameflags&1=0 and s.gauge>0.7 limit 1) from Charts where level=${level} ${where}`).then(sql_all));
+
+    }
 
     prog.attr('value','4');
 
@@ -350,31 +393,45 @@ function do_stats(where='') {
       return l.reduce((a,b)=>a+b) / l.length;
     }
 
-    console.log("Calcing");
+    let score_list = Object.entries(scores);
 
-    let score_list = Object.values(scores);
+    let badges = {};
+    for (let b of ['c','hc','uc','puc']) badges[b] = 0;
 
-    for (let s of score_list) {
+    let grades = new Array(10);
+    grades.fill(0);
+
+    for (let [h,s] of score_list) {
 
       let grade = 0.80;
-      if (s.score >= 9900000)
+      if (s.score >= 9900000) {
         grade = 1.05;
-      else if (s.score >= 9800000)
+        s.grade = 0;
+      } else if (s.score >= 9800000) {
         grade = 1.02;
-      else if (s.score >= 9700000)
+        s.grade = 1;
+      } else if (s.score >= 9700000) {
         grade = 1.00;
-      else if (s.score >= 9500000)
+        s.grade = 2;
+      } else if (s.score >= 9500000) {
         grade = 0.97;
-      else if (s.score >= 9300000)
+        s.grade = 3;
+      } else if (s.score >= 9300000) {
         grade = 0.94;
-      else if (s.score >= 9000000)
+        s.grade = 4;
+      } else if (s.score >= 9000000) {
         grade = 0.91;
-      else if (s.score >= 8700000)
+        s.grade = 5;
+      } else if (s.score >= 8700000) {
         grade = 0.88;
-      else if (s.score >= 7500000)
+        s.grade = 6;
+      } else if (s.score >= 7500000) {
         grade = 0.85;
-      else if (s.score >= 6500000)
+        s.grade = 7;
+      } else if (s.score >= 6500000) {
         grade = 0.82;
+        s.grade = 8;
+      }
 
       let clear = ({
         puc: 1.10,
@@ -384,18 +441,21 @@ function do_stats(where='') {
         f: 0.50,
       })[s.badge];
 
+      badges[s.badge]++;
+      grades[s.grade]++;
+
       let vol = level * 2 * (s.score/10000000) * grade * clear;
-      vol = parseInt(vol) / 100;
+      vol = parseInt(vol*10) / 1000;
       if (best_vol.length < 50 || low_best_vol < vol) {
-        best_vol.push(vol);
+        best_vol.push({vf:vol, score:s, hash:h, level});
         if (best_vol.length > 50) {
-          best_vol = best_vol.sort().slice(-50);
-          low_best_vol = best_vol[0];
+          best_vol = best_vol.sort((a,b)=>a.vf - b.vf).slice(-50);
+          low_best_vol = best_vol[0].vf;
         }
       }
     }
 
-    let total_vol = best_vol.reduce((a,b)=>a+b);
+    let total_vol = best_vol.reduce((a,b)=>a+b.vf, 0);
     total_vol = parseInt(total_vol * 1000)/1000;
     total_vol = Math.max(0, total_vol);
     let vf_classes = [
@@ -422,7 +482,7 @@ function do_stats(where='') {
       try {
         console.error(vf_class, typeof(vf_class), Array.isArray(vf_class));
       } catch(e) {}
-      vf_class = [0.0, 'Unknown', 'red','red', [0,    2.5,   5.0,  7.5]];
+      vf_class = [0.0, 'Error', 'red','white', [0,    2.5,   5.0,  7.5]];
     } else {
       for (let i=0; i<vf_class[4].length; i++) {
         if (total_vol > vf_class[4][i])
@@ -430,14 +490,18 @@ function do_stats(where='') {
       }
     }
 
-    volforce.text(`${total_vol} VF (${vf_class[1]} ${'\u2605'.repeat(stars)})`);
+    volforce.find('.vf').text(`${total_vol} VF`);
+    volforce.find('.vfclass')
+      .text(`${vf_class[1]} ${'\u2605'.repeat(stars)}`)
+      .css('backgroundColor',vf_class[2])
+      .css('color',vf_class[3]);
 
-    let avg = avg_list(score_list.map(x=>x.score));
-    let clr_avg = avg_list(score_list.filter(x=>x.badge !== 'f').map(x=>x.score));
-    let badges = {}
-    for (let score of score_list) {
-      let b = score.badge;
-      badges[b] = (badges[b]? badges[b] : 0) + 1;
+    let avg = avg_list(score_list.map(([_,x])=>x.score));
+    let clr_avg = avg_list(score_list.filter(([_,x])=>x.badge !== 'f').map(([_,x])=>x.score));
+
+    let not_clear = chart_count;
+    for (let b of ['c','hc','uc','puc']) {
+      not_clear -= badges[b];
     }
 
     let nums = function(n) {
@@ -449,17 +513,78 @@ function do_stats(where='') {
       return `<b>${n.slice(0,4)}</b>${n.slice(4)}`
     }
 
+    let best_chart = await get_chart(best_score.hash);
+
     body.append($(`
 <tr>
   <td>${level}</td>
   <td>${nums(avg)}</td>
   <td>${nums(clr_avg)}</td>
-  <td>${nums(best_score)}</td>
-  <td>${badges.c? badges.c : 0}</td>
-  <td>${badges.hc? badges.hc : 0}</td>
-  <td>${badges.uc? badges.uc : 0}</td>
-  <td>${badges.puc? badges.puc : 0}</td>
+  <td title="${best_chart? best_chart[1] : ''}">${nums(best_score.score)}</td>
+  <td>${badges.c}</td>
+  <td>${badges.hc}</td>
+  <td>${badges.uc}</td>
+  <td>${badges.puc}</td>
+  <td>${not_clear}</td>
 </tr>`));
+
+    let grade_s = '';
+    for (let [i,g] of ['S','AAA+','AAA','AA+','AA','A+','A'].entries()) {
+      if (grades[i] === 0)
+        continue;
+
+      let c = 'danger';
+      if (i < 1) c = 'success';
+      else if (i < 3) c = 'primary';
+      else if (i < 5) c = 'info';
+      else if (i < 7) c = 'warning';
+
+      grade_s += `
+<div class="control"><div class="tags has-addons">
+  <span class="tag is-${c}">${g}</span>
+  <span class="tag is-dark">${grades[i]}</span>
+</div></div>`;
+    }
+
+    if (grade_s !== '') {
+      body.append($(`
+<tr class="grade-line" style="white-space: initial;">
+  <td></td>
+  <td colspan="8">
+  <div class="field is-grouped is-grouped-multiline">
+    ${grade_s}
+  </div>
+  </td>
+</td>
+      `));
+    }
+
+    {
+      let body = vol_table.find('tbody');
+      body.empty();
+      best_vol.sort((a,b)=>{
+        if (a.vf == b.vf)
+          return b.score.score - a.score.score;
+        return b.vf-a.vf;
+      });
+      for (let c of best_vol) {
+        let chart = await get_chart(c.hash);
+        let tags = ``;
+        if (c.score.badge === 'puc') {
+          tags += ` <span class="tag is-success">PUC</span>`;
+        } else if (c.score.badge === 'uc') {
+          tags += ` <span class="tag is-info">UC</span>`;
+        } else if (c.score.badge === 'hc') {
+          tags += ` <span class="tag is-danger">EX</span>`;
+        }
+        body.append($(`
+<tr style="white-space: initial;">
+  <td>${c.vf.toFixed(3)}</td>
+  <td>${c.score.score}${tags}</td>
+  <td>${chart[1]} [${c.level}]</td>
+</tr>`));
+      }
+    }
   }
 
   prog.remove();
@@ -504,7 +629,6 @@ async function find_folders(all_rows) {
 
   let dirs = new Set();
 
-  console.log(base_dir);
   for (let row of all_rows) {
     let path = row[1];
     path = path.slice(base_dir.length);
@@ -527,11 +651,9 @@ async function find_base_path(all_rows) {
 
   for (let row of all_rows) {
     let path = row[1].split(sep);
-    //console.log(path);
 
     if (possible_path.length === 0) {
       possible_path = path;
-      console.log(possible_path);
       continue;
     }
 
@@ -543,8 +665,6 @@ async function find_base_path(all_rows) {
       // If we found a different dir, then we need to truncate
       if (path[i] !== possible_path[i]) {
         possible_path = path.slice(0, i);
-        console.log('checked',path);
-        console.log(possible_path);
         break;
       }
     }
@@ -610,7 +730,6 @@ $('#btn-paths').click(() => {
       ps[`$path${id}`] = path;
     }
     q += `end) where ${or.slice(3)}`
-    console.log(q);
     charts_to_flush.length = 0;
     await query(q, ps);
   }
