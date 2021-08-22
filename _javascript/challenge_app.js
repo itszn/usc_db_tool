@@ -11,11 +11,11 @@ $('#level').on("change keypress input", function() {
   else {
     if (lv < 1)
       lv = 1;
-    if (lv > 11)
-      lv = 11;
+    if (lv > 12)
+      lv = 12;
   }
   $('#level').val(lv);
-  if (lv === 11)
+  if (lv === 12)
     lv = '∞'
   $('.level-value').text(lv);
 });
